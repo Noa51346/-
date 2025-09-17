@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>יצירת מערכת שעות חכמה</title>
+<style>
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); margin:0; padding:0; color:#fff; }
+  header { display:flex; align-items:center; justify-content:center; gap:15px; padding:20px; font-size:28px; font-weight:bold; }
+  header img { width:40px; height:40px; }
+  main { display:flex; padding:20px; gap:20px; }
+  .left { flex:2; }
+  .right { flex:1; background: rgba(255,255,255,0.1); padding:15px; border-radius:15px; max-height:90vh; overflow-y:auto; }
+  input, select, button { padding:8px; margin:5px; border-radius:8px; border:none; font-size:14px; }
+  button { background:#ff9800; color:white; font-weight:bold; cursor:pointer; transition:0.3s; }
+  button:hover { background:#e68900; }
+  table.schedule { width:100%; border-collapse:collapse; margin-top:20px; background: rgba(255, 255, 255, 0.1); border-radius:10px; overflow:hidden; }
+  table.schedule th, table.schedule td { border:1px solid rgba(255,255,255,0.3); padding:10px; text-align:center; min-width:100px; height:50px; }
+  table.schedule th { background: rgba(0,0,0,0.3); }
+  .course-box { border-radius:8px; padding:5px; color:#fff; font-weight:bold; margin:2px 0; }
+  .lecture { background:#2196f3; }
+  .practice { background:#4caf50; }
+  .motivation { margin:10px 0; font-style:italic; font-size:18px; color:#ffd700; }
+  .course-item { margin-bottom:10px; }
+  .remove-btn { background:#ff4444; color:#fff; margin-left:5px; border-radius:50%; width:20px; height:20px; text-align:center; line-height:20px; cursor:pointer; font-weight:bold; display:inline-block; }
+  footer { margin-top:30px; font-size:14px; color:#fff; text-align:center; }
+  h3 { margin-bottom:5px; }
+</style>
+</head>
+<body>
+<header>
+  <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="כובע סטודנט">
+  יצירת מערכת שעות חכמה
+</header>
+<main>
+  <div class="left">
+    <div class="motivation" id="motivation"></div>
+    <div class="form-section">
+      <input type="text" id="courseName" placeholder="שם הקורס">
+      <select id="day">
+        <option value="0">ראשון</option>
+        <option value="1">שני</option>
+        <option value="2">שלישי</option>
+        <option value="3">רביעי</option>
+        <option value="4">חמישי</option>
+        <option value="5">שישי</option>
+      </select>
+      <input type="time" id="start" min="08:00" max="22:00">
+      <input type="time" id="end" min="08:00" max="22:00">
+      <select id="type">
+        <option value="הרצאה">הרצאה</option>
+        <option value="תרגול">תרגול</option>
+      </select>
+      <button onclick="addCourse()">➕ הוסף קורס</button>
+      <button onclick="generateSchedule()">✨ צור מערכת</button>
+      <button onclick="fillExample()">📌 מלא דוגמה</button>
+      <button onclick="downloadCSV()">💾 הורד לאקסל</button>
+    </div>
+    <div id="warning" style="color:#ff3333; margin-top:10px;"></div>
+    <div id="scheduleContainer"></div>
+  </div>
+  <div class="right">
+    <h3>קורסים שהזנת:</h3>
+    <div id="courseList"></div>
+  </div>
+</main>
+<footer>© Noa Aharonoff</footer>
+<script>
+let courses=[];
+const motivations=["כל יום הוא הזדמנות ללמוד משהו חדש! 🌟","הצלחה מתחילה בתכנון נכון! 💪","אל תפסיקי לנסות – את יכולה! 🚀","לימוד חכם מביא תוצאות! 📚","תמיד תזכרי: אין חפיפות, רק פתרונות! 🎯"];
+
+// הצגת משפטי מוטיבציה
+function showMotivation(){ const shuffled=motivations.sort(()=>0.5-Math.random()); document.getElementById('motivation').innerHTML=shuffled.slice(0,5).join('<br>'); }
+showMotivation();
+
+// הוספת קורס
+function addCourse(){
+  const name=document.getElementById('courseName').value.trim();
+  const day=parseInt(document.getElementById('day').value);
+  const start=document.getElementById('start').value;
+  const end=document.getElementById('end').value;
+  const type=document.getElementById('type').value;
+  if(!name||!start||!end){ alert("נא למלא את כל השדות"); return; }
+
+  let existing=courses.find(c=>c.name===name);
+  if(existing){ existing.times.push({day,start,end,type}); }
+  else{ courses.push({name,times:[{day,start,end,type}]}); }
+
+  updateCourseList();
+  document.getElementById('courseName').value='';
+}
+
+// עדכון רשימת הקורסים עם כפתור מחיקה
+function updateCourseList(){
+  const list=document.getElementById('courseList'); list.innerHTML='';
+  courses.forEach((c,index)=>{
+    const div=document.createElement('div'); div.className='course-item';
+    div.innerHTML=`<b>${c.name}</b> <span class='remove-btn' onclick='removeCourse(${index})'>✖️</span><br>`+c.times.map(t=>`${t.type}: ${t.start} - ${t.end} (${['ראשון','שני','שלישי','רביעי','חמישי','שישי'][t.day]})`).join('<br>');
+    list.appendChild(div);
+  });
+}
+
+function removeCourse(index){ courses.splice(index,1); updateCourseList(); generateSchedule(); }
+
+// יצירת מערכת שעות חכמה
+function generateSchedule(){
+  const container=document.getElementById('scheduleContainer'); container.innerHTML='';
+  document.getElementById('warning').innerText='';
+  const table=document.createElement('table'); table.className='schedule';
+  const days=['ראשון','שני','שלישי','רביעי','חמישי','שישי']; const hours=[];
+  for(let h=8;h<=22;h++) hours.push(h.toString().padStart(2,'0')+":00");
+
+  const thead=document.createElement('thead'); const headRow=document.createElement('tr'); headRow.appendChild(document.createElement('th'));
+  days.forEach(d=>{ const th=document.createElement('th'); th.textContent=d; headRow.appendChild(th);}); thead.appendChild(headRow); table.appendChild(thead);
+
+  const tbody=document.createElement('tbody'); hours.forEach(h=>{ const row=document.createElement('tr'); const hourCell=document.createElement('td'); hourCell.textContent=h; row.appendChild(hourCell); for(let d=0;d<days.length;d++) row.appendChild(document.createElement('td')); tbody.appendChild(row);}); table.appendChild(tbody); container.appendChild(table);
+
+  let cannotPlace=[];
+  courses.forEach(c=>{
+    c.times.forEach(t=>{
+      let startHour=parseInt(t.start.split(":")[0]);
+      let endHour=parseInt(t.end.split(":")[0]);
+      let placed=false;
+      for(let h=startHour;h<endHour;h++){
+        const rowIndex=hours.indexOf(h.toString().padStart(2,'0')+":00");
+        if(rowIndex>=0){ const row=tbody.rows[rowIndex]; const cell=row.cells[t.day+1]; const div=document.createElement('div');
+          div.className='course-box '+(t.type==='הרצאה'?'lecture':'practice'); div.textContent=c.name+' ('+t.type+')';
+          if(cell.children.length===0){ cell.appendChild(div); placed=true; }
+        }
+      }
+      if(!placed && !cannotPlace.includes(c.name)) cannotPlace.push(c.name);
+    });
+  });
+
+  if(cannotPlace.length>0) document.getElementById('warning').innerText="לא ניתן לשבץ את הקורסים: "+cannotPlace.join(", ");
+}
+
+// הורדת מערכת שעות לCSV
+function downloadCSV(){
+  let csv='קורס,סוג,יום,שעה התחלה,שעה סיום\n';
+  courses.forEach(c=>{ c.times.forEach(t=>{ csv+=`${c.name},${t.type},${['ראשון','שני','שלישי','רביעי','חמישי','שישי'][t.day]},${t.start},${t.end}\n`; }); });
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const link=document.createElement('a'); link.href=URL.createObjectURL(blob); link.download='מערכת_שעות.csv'; link.click();
+}
+
+// דוגמה מהירה
+function fillExample(){
+  courses=[
+    {name:'מבני נתונים', times:[{day:0,start:'10:00',end:'12:00',type:'הרצאה'},{day:2,start:'14:00',end:'16:00',type:'תרגול'}]},
+    {name:'אלגברה ליניארית', times:[{day:1,start:'08:00',end:'10:00',type:'הרצאה'},{day:3,start:'12:00',end:'14:00',type:'תרגול'}]}
+  ];
